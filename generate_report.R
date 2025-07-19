@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # ---------------------------------------------------------------------------
-# generate_report.R  – Scrape, summarise, render PDF, upload to Supabase,
-#                       and email the report through Mailjet
+# generate_report.R  – Scrape, summarise, render PDF, upload to Supabase,
+#                      and email the report through Mailjet
 # ---------------------------------------------------------------------------
 
 # 0 ── PACKAGES ──────────────────────────────────────────────────────────────
@@ -16,7 +16,7 @@ invisible(lapply(required, function(pkg) {
 
 # 1 ── HELPERS ───────────────────────────────────────────────────────────────
 trim_env <- \(var, default = "") {
-  val <- str_trim(Sys.getenv(var, unset = default))
+  val <- stringr::str_trim(Sys.getenv(var, unset = default))
   if (identical(val, "")) default else val
 }
 
@@ -69,8 +69,8 @@ OPENAI_KEY      <- trim_env("OPENAI_API_KEY")
 ## ---- Mailjet ----
 MJ_API_KEY      <- trim_env("MJ_API_KEY")
 MJ_API_SECRET   <- trim_env("MJ_API_SECRET")
-MAIL_FROM       <- trim_env("MAIL_FROM")   # "José Peña <jgpena@uc.cl>"
-MAIL_TO         <- trim_env("MAIL_TO")     # "ecotools@arweave.org.com"
+MAIL_FROM       <- trim_env("MAIL_FROM")   # e.g. "José Peña <jgpena@uc.cl>"  or  "jgpena@uc.cl"
+MAIL_TO         <- trim_env("MAIL_TO")     # e.g. "ecotools@arweave.org.com"
 
 stopifnot(
   SB_HOST  != "", OPENAI_KEY != "",
@@ -361,17 +361,28 @@ show_mj_error <- function(resp) {
       httr2::resp_body_string(resp, encoding = "UTF-8"), "\n\n")
 }
 
+# ---- robust “From” parsing (accepts either form) ---------------------------
+from_email <- if (stringr::str_detect(MAIL_FROM, "<.+@.+>")) {
+  stringr::str_remove_all(stringr::str_extract(MAIL_FROM, "<.+@.+>"), "[<>]")
+} else {
+  MAIL_FROM                               # plain address provided
+}
+
+from_name  <- if (stringr::str_detect(MAIL_FROM, "<.+@.+>")) {
+  stringr::str_trim(stringr::str_remove(MAIL_FROM, "<.+@.+>$"))  # text before <
+} else {
+  "Report Bot"                            # fallback display‑name
+}
+
+# ---- send through Mailjet --------------------------------------------------
 mj_resp <- request("https://api.mailjet.com/v3.1/send") |>
   req_auth_basic(MJ_API_KEY, MJ_API_SECRET) |>
   req_body_json(list(
     Messages = list(list(
-      From = list(
-        Email = str_remove_all(str_extract(MAIL_FROM, "<.*?>"), "[<>]"),
-        Name  = str_trim(str_remove(MAIL_FROM, "<.+>$"))
-      ),
-      To       = list(list(Email = MAIL_TO)),
-      Subject  = "Weekly Twitter Report",
-      TextPart = "Attached you'll find the weekly report in PDF format.",
+      From      = list(Email = from_email, Name = from_name),
+      To        = list(list(Email = MAIL_TO)),
+      Subject   = "Weekly Twitter Report",
+      TextPart  = "Attached you'll find the weekly report in PDF.",
       Attachments = list(list(
         ContentType   = "application/pdf",
         Filename      = "weekly_report.pdf",
@@ -379,16 +390,16 @@ mj_resp <- request("https://api.mailjet.com/v3.1/send") |>
       ))
     ))
   )) |>
-  ## ⬇─ suppress automatic stop-on-error
+  # don't stop automatically on HTTP ≠ 2xx
   req_error(is_error = function(resp) FALSE) |>
   req_perform()
 
-# ---- interpret the result --------------------------------------------------
 status <- httr2::resp_status(mj_resp)
 
 if (status >= 300) {
-  show_mj_error(mj_resp)                     # print the JSON error payload
+  show_mj_error(mj_resp)
   stop(paste("Mailjet returned status", status))
 } else {
   cat("📧  Mailjet response OK — report emailed\n")
 }
+
