@@ -356,8 +356,6 @@ cat("✔ Uploaded to Supabase: ", object_path, "\n")
 
 # 10 ── EMAIL VIA MAILJET ----------------------------------------------------
 
-# ── MAILJET ---------------------------------------------------------------
-
 show_mj_error <- function(resp) {
   cat("\n↪ Mailjet response body:\n",
       httr2::resp_body_string(resp, encoding = "UTF-8"), "\n\n")
@@ -381,11 +379,16 @@ mj_resp <- request("https://api.mailjet.com/v3.1/send") |>
       ))
     ))
   )) |>
+  ## ⬇─ suppress automatic stop-on-error
+  req_error(is_error = function(resp) FALSE) |>
   req_perform()
 
-if (httr2::resp_status(mj_resp) >= 300) {
-  show_mj_error(mj_resp)               # print JSON error payload
-  stop(paste("Mailjet returned status", httr2::resp_status(mj_resp)))
+# ---- interpret the result --------------------------------------------------
+status <- httr2::resp_status(mj_resp)
+
+if (status >= 300) {
+  show_mj_error(mj_resp)                     # print the JSON error payload
+  stop(paste("Mailjet returned status", status))
 } else {
   cat("📧  Mailjet response OK — report emailed\n")
 }
