@@ -356,20 +356,20 @@ cat("✔ Uploaded to Supabase: ", object_path, "\n")
 
 # 10 ── EMAIL VIA MAILJET ----------------------------------------------------
 
+# ── MAILJET ---------------------------------------------------------------
+
 show_mj_error <- function(resp) {
-  cat("↪ Mailjet response body:\n",
-      httr2::resp_body_string(resp, encoding = "UTF-8"), "\n")
+  cat("\n↪ Mailjet response body:\n",
+      httr2::resp_body_string(resp, encoding = "UTF-8"), "\n\n")
 }
 
-# ── send e‑mail via Mailjet -------------------------------------------------
 mj_resp <- request("https://api.mailjet.com/v3.1/send") |>
   req_auth_basic(MJ_API_KEY, MJ_API_SECRET) |>
   req_body_json(list(
     Messages = list(list(
       From = list(
-        Email = stringr::str_extract(MAIL_FROM, "<(.+@.+)>") |>
-                  stringr::str_replace_all("[<>]", ""),
-        Name  = stringr::str_trim(stringr::str_remove(MAIL_FROM, "<.+>$"))
+        Email = str_remove_all(str_extract(MAIL_FROM, "<.*?>"), "[<>]"),
+        Name  = str_trim(str_remove(MAIL_FROM, "<.+>$"))
       ),
       To       = list(list(Email = MAIL_TO)),
       Subject  = "Weekly Twitter Report",
@@ -383,13 +383,9 @@ mj_resp <- request("https://api.mailjet.com/v3.1/send") |>
   )) |>
   req_perform()
 
-# ── check result ------------------------------------------------------------
 if (httr2::resp_status(mj_resp) >= 300) {
-  show_mj_error(mj_resp)          # <-- prints JSON error details
+  show_mj_error(mj_resp)               # print JSON error payload
   stop(paste("Mailjet returned status", httr2::resp_status(mj_resp)))
 } else {
   cat("📧  Mailjet response OK — report emailed\n")
 }
-
-stopifnot(resp_status(req) == 200)
-cat("📧  Mailjet response OK – report emailed\n")
