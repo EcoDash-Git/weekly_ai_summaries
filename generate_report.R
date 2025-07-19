@@ -1,4 +1,3 @@
-
 #!/usr/bin/env Rscript
 # ---------------------------------------------------------------------------
 # generate_report.R  – Scrape, summarise, render PDF, upload to Supabase,
@@ -16,35 +15,40 @@ invisible(lapply(required, \(pkg) {
 }))
 
 # 1 ── ENVIRONMENT VARIABLES --------------------------------------------------
+trim_env <- \(var) stringr::str_trim(Sys.getenv(var))
+
 ## ---- Supabase (database + storage) ----
-SB_HOST           <- Sys.getenv("SUPABASE_HOST")
-SB_PORT           <- as.integer(Sys.getenv("SUPABASE_PORT", "6543"))
-SB_DB             <- Sys.getenv("SUPABASE_DB")
-SB_USER           <- Sys.getenv("SUPABASE_USER")
-SB_PWD            <- Sys.getenv("SUPABASE_PWD")
-SB_URL            <- Sys.getenv("SUPABASE_URL")           # e.g. https://<ref>.supabase.co
-SB_STORAGE_KEY    <- Sys.getenv("SUPABASE_SERVICE_ROLE")  # service‑role key for storage
-SB_BUCKET         <- Sys.getenv("SB_BUCKET", "weekly-reports")
+SB_HOST        <- trim_env("SUPABASE_HOST")
+SB_PORT        <- as.integer(trim_env("SUPABASE_PORT", "6543"))
+SB_DB          <- trim_env("SUPABASE_DB")
+SB_USER        <- trim_env("SUPABASE_USER")
+SB_PWD         <- trim_env("SUPABASE_PWD")
+SB_URL         <- trim_env("SUPABASE_URL")            # https://<ref>.supabase.co
+SB_STORAGE_KEY <- trim_env("SUPABASE_SERVICE_ROLE")   # service‑role key
+SB_BUCKET      <- trim_env("SB_BUCKET") %||% "weekly-reports"
 
 ## ---- OpenAI ----
-OPENAI_KEY        <- Sys.getenv("OPENAI_API_KEY")
+OPENAI_KEY     <- trim_env("OPENAI_API_KEY")
 
 ## ---- Mailjet ----
-MJ_API_KEY        <- Sys.getenv("MJ_API_KEY")
-MJ_API_SECRET     <- Sys.getenv("MJ_API_SECRET")
-MAIL_FROM         <- Sys.getenv("MAIL_FROM")     # "José Peña <jgpena@uc.cl>"
-MAIL_TO           <- Sys.getenv("MAIL_TO")       # "ecotools@arweave.org.com"
+MJ_API_KEY     <- trim_env("MJ_API_KEY")
+MJ_API_SECRET  <- trim_env("MJ_API_SECRET")
+MAIL_FROM      <- trim_env("MAIL_FROM")   # e.g. "José Peña <jgpena@uc.cl>"
+MAIL_TO        <- trim_env("MAIL_TO")     # e.g. "ecotools@arweave.org.com"
 
 stopifnot(
-  nchar(SB_HOST)       > 0,
-  nchar(OPENAI_KEY)    > 0,
-  nchar(MJ_API_KEY)    > 0,
-  nchar(MJ_API_SECRET) > 0,
-  nchar(MAIL_FROM)     > 0,
-  nchar(MAIL_TO)       > 0
+  nchar(SB_HOST)        > 0,
+  nchar(SB_USER)        > 0,
+  nchar(SB_PWD)         > 0,
+  nchar(SB_DB)          > 0,
+  nchar(OPENAI_KEY)     > 0,
+  nchar(MJ_API_KEY)     > 0,
+  nchar(MJ_API_SECRET)  > 0,
+  nchar(MAIL_FROM)      > 0,
+  nchar(MAIL_TO)        > 0
 )
 
-# 2 ── LOAD DATA FROM SUPABASE (twitter_raw) ---------------------------------
+# 2 ── LOAD DATA FROM SUPABASE -----------------------------------------------
 con <- DBI::dbConnect(
   RPostgres::Postgres(),
   host     = SB_HOST,
@@ -69,10 +73,12 @@ tweets_tagged <- twitter_raw |>
   mutate(
     is_rt_text = str_detect(text, "^RT @"),
     tweet_type = case_when(
-      is_rt_text                                   ~ "retweet",
-      user_id == main_id & !is_rt_text & str_detect(text, "https://t.co") ~ "quote",
-      user_id == main_id                           ~ "original",
-      TRUE                                         ~ "other"
+      is_rt_text &
+        user_id != main_id                 ~ "retweet",
+      user_id == main_id &
+        is_rt_text                         ~ "quote",
+      user_id == main_id                  ~ "original",
+      TRUE                                 ~ "other"
     )
   )
 
@@ -85,7 +91,7 @@ df <- tweets_tagged |>
   filter(publish_dt >= Sys.time() - ddays(7)) |>
   distinct(id, .keep_all = TRUE)
 
-# 3 ── GPT HELPERS -----------------------------------------------------------
+# 3 ── GPT HELPER -------------------------------------------------------------
 ask_gpt <- function(prompt, model = "gpt-4o-mini", temperature = 0,
                     max_tokens = 700, retries = 3) {
   for (k in seq_len(retries)) {
@@ -113,8 +119,7 @@ ask_gpt <- function(prompt, model = "gpt-4o-mini", temperature = 0,
   stop("All OpenAI retries failed")
 }
 
-# 4 ── BUILD PROMPTS  (same logic you already had, condensed) ----------------
-## --- shorten helpers to keep script readable --------------------------------
+# 4 ── BUILD PROMPTS (shortened) ---------------------------------------------
 first60 <- \(txt) str_sub(txt, 1, 60)
 
 tweet_lines <- df |>
@@ -137,11 +142,11 @@ overall_prompt <- glue(
 )
 overall_summary <- ask_gpt(overall_prompt)
 
-# 5 ── RENDER MARKDOWN -> PDF -----------------------------------------------
+# 5 ── RENDER MARKDOWN → PDF --------------------------------------------------
 writeLines(c("# Weekly Summary", "", overall_summary), "summary.md")
 pagedown::chrome_print("summary.md", output = "summary_full.pdf")
 
-# 6 ── UPLOAD TO SUPABASE STORAGE -------------------------------------------
+# 6 ── UPLOAD TO SUPABASE STORAGE --------------------------------------------
 object_path <- sprintf(
   "%s/summary_%s.pdf",
   format(Sys.Date(), "%Yw%V"),
@@ -164,13 +169,15 @@ request(upload_url) |>
 
 cat("✔ Uploaded to Supabase: ", object_path, "\n")
 
-# 7 ── EMAIL VIA MAILJET REST API -------------------------------------------
+# 7 ── EMAIL VIA MAILJET REST API --------------------------------------------
 req <- request("https://api.mailjet.com/v3.1/send") |>
   req_auth_basic(MJ_API_KEY, MJ_API_SECRET) |>
   req_body_json(list(
     Messages = list(list(
-      From     = list(Email = str_extract(MAIL_FROM, "<(.+@.+)>") |> gsub("[<>]", "", _),
-                      Name  = str_trim(str_remove(MAIL_FROM, "<.+>$"))),
+      From     = list(
+        Email = sub(".*<(.*)>.*", "\\1", MAIL_FROM),
+        Name  = str_trim(sub("<.*>", "", MAIL_FROM))
+      ),
       To       = list(list(Email = MAIL_TO)),
       Subject  = "Weekly Twitter Report",
       TextPart = "Attached you'll find the weekly report in PDF.",
@@ -185,3 +192,4 @@ req <- request("https://api.mailjet.com/v3.1/send") |>
 
 stopifnot(resp_status(req) == 200)
 cat("📧  Mailjet response OK – report emailed\n")
+
