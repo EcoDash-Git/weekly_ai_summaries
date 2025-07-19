@@ -15,7 +15,10 @@ invisible(lapply(required, \(pkg) {
 }))
 
 # 1 ── ENVIRONMENT VARIABLES --------------------------------------------------
-trim_env <- \(var) stringr::str_trim(Sys.getenv(var))
+# helper: read env‑var, fallback to `default`, trim whitespace
+trim_env <- function(var, default = "") {
+  stringr::str_trim(Sys.getenv(var, unset = default))
+}
 
 ## ---- Supabase (database + storage) ----
 SB_HOST        <- trim_env("SUPABASE_HOST")
