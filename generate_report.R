@@ -10,8 +10,7 @@ required <- c(
   "RPostgres", "DBI", "base64enc", "tidytext"
 )
 invisible(lapply(required, \(pkg) {
-  if (!requireNamespace(pkg, quietly = TRUE))
-    install.packages(pkg, quiet = TRUE)
+  if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg, quiet = TRUE)
   library(pkg, character.only = TRUE)
 }))
 
@@ -56,6 +55,8 @@ ask_gpt <- function(prompt, model = "gpt-4o-mini",
   }
   stop("All OpenAI retries failed")
 }
+
+`%||%` <- function(a, b) if (nzchar(a)) a else b     # tiny helper
 
 # 2 ── ENVIRONMENT VARIABLES -------------------------------------------------
 SB_HOST        <- trim_env("SUPABASE_HOST")
@@ -154,7 +155,7 @@ tweets <- twitter_raw |>
   distinct(tweet_id, .keep_all = TRUE)
 
 df  <- tweets |> filter(tweet_type == "original")
-df2 <- tweets                                 # <-- keep full set too
+df2 <- tweets                                 # full set
 
 # 5 ── SECTION 1 – LAUNCH / ACTIVITY SUMMARY ---------------------------------
 tweet_lines <- df |>
@@ -339,33 +340,19 @@ weekly_prompt <- glue(
 
 overall_summary4 <- ask_gpt(weekly_prompt, temperature = 0.4, max_tokens = 450)
 
-# ---------------------------------------------------------------------------
-# 8.5 ── Make sure headless Chrome works in CI
-# ---------------------------------------------------------------------------
+# 9 ── LOCATE CHROME / CHROMIUM ---------------------------------------------
 suppressMessages({
-  # 1) locate Chrome/Chromium
-  chrome <- pagedown::find_chrome() %||%
-            Sys.which("chromium-browser") %||%
-            Sys.which("google-chrome")    %||%
+  chrome <- pagedown::find_chrome()            %||%
+            Sys.which("chromium-browser")       %||%
+            Sys.which("google-chrome")          %||%
             Sys.which("chromium")
-  if (chrome == "") {
-    stop("Cannot find Chrome/Chromium. Is it installed on the runner?")
-  }
+  if (chrome == "") stop("Cannot find Chrome/Chromium on the runner")
   options(pagedown.chromium = chrome)
 })
 
-# 2) render => PDF (pass --no‑sandbox so the process can start)
-pagedown::chrome_print(
-  "summary.md",
-  output     = "summary_full.pdf",
-  extra_args = "--no-sandbox"
-)
-
-
-# 9 ── COMBINE & RENDER ------------------------------------------------------
+# 10 ── COMBINE, WRITE, RENDER PDF ------------------------------------------
 make_md_links <- \(txt) {
-  # replace raw URLs *unless* they are already linked
-  pattern <- "(?<!\\]\\()https?://\\S+"
+  pattern <- "(?<!\\]\\()https?://\\S+"          # only raw URLs
   str_replace_all(txt, pattern, "[Link](\\0)")
 }
 
@@ -377,9 +364,14 @@ final_report <- glue(
   make_md_links()
 
 writeLines(c("# Weekly Summary", "", final_report), "summary.md")
-pagedown::chrome_print("summary.md", output = "summary_full.pdf")
 
-# 10 ── UPLOAD TO SUPABASE ---------------------------------------------------
+pagedown::chrome_print(
+  "summary.md",
+  output     = "summary_full.pdf",
+  extra_args = "--no-sandbox"
+)
+
+# 11 ── UPLOAD TO SUPABASE ---------------------------------------------------
 object_path <- sprintf(
   "%s/summary_%s.pdf",
   format(Sys.Date(), "%Yw%V"),
@@ -404,7 +396,7 @@ request(upload_url) |>
 
 cat("✔ Uploaded to Supabase:", object_path, "\n")
 
-# 11 ── EMAIL VIA MAILJET ----------------------------------------------------
+# 12 ── EMAIL VIA MAILJET ----------------------------------------------------
 show_mj_error <- function(resp) {
   cat("\n↪ Mailjet response body:\n",
       resp_body_string(resp, encoding = "UTF-8"), "\n\n")
@@ -442,5 +434,4 @@ if (resp_status(mj_resp) >= 300) {
 } else {
   cat("📧  Mailjet response OK — report emailed\n")
 }
-
 
