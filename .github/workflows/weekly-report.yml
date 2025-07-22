@@ -1,83 +1,75 @@
 name: Weekly Twitter Report
 
 on:
-  # Run manually from the Actions tab
+  # Manual trigger from the Actions tab
   workflow_dispatch:
 
-  # Uncomment to auto-run every Friday at 12:00 UTC (adjust as needed)
+  # Uncomment if you want it to run every Friday at 12:00 UTC
   # schedule:
-  #   - cron: "0 12 * * 5"   # min hr dom mon dow (5 = Friday)
-
-  # (Optional) run when main branch changes scraping/data code
-  # push:
-  #   branches: [ "main" ]
-  #   paths:
-  #     - "generate_report.R"
-  #     - "DESCRIPTION"
-  #     - "renv.lock"
-  #     - ".github/workflows/weekly-report.yml"
+  #   - cron: "0 12 * * 5"     # min hr dom mon dow   (5 = Friday)
 
 jobs:
   build-run:
     runs-on: ubuntu-latest
 
+    # ------------------------------------------------------------------
+    # Environment variables – pulled from GitHub Secrets / Organization Vars
+    # ------------------------------------------------------------------
     env:
       # ---------- Supabase ----------
-      SUPABASE_HOST:       ${{ secrets.SUPABASE_HOST }}
-      SUPABASE_PORT:       ${{ secrets.SUPABASE_PORT }}
-      SUPABASE_DB:         ${{ secrets.SUPABASE_DB }}
-      SUPABASE_USER:       ${{ secrets.SUPABASE_USER }}
-      SUPABASE_PWD:        ${{ secrets.SUPABASE_PWD }}
-      SUPABASE_URL:        ${{ secrets.SUPABASE_URL }}
+      SUPABASE_HOST:         ${{ secrets.SUPABASE_HOST }}
+      SUPABASE_PORT:         ${{ secrets.SUPABASE_PORT }}
+      SUPABASE_DB:           ${{ secrets.SUPABASE_DB }}
+      SUPABASE_USER:         ${{ secrets.SUPABASE_USER }}
+      SUPABASE_PWD:          ${{ secrets.SUPABASE_PWD }}
+      SUPABASE_URL:          ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE: ${{ secrets.SUPABASE_SERVICE_ROLE }}
-      SB_BUCKET:           ${{ vars.SB_BUCKET || 'weekly-reports' }}
+      SB_BUCKET:             ${{ vars.SB_BUCKET }}   # e.g. weekly-reports
 
       # ---------- OpenAI ----------
-      OPENAI_API_KEY:      ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_API_KEY:        ${{ secrets.OPENAI_API_KEY }}
 
       # ---------- Mailjet ----------
-      MJ_API_KEY:          ${{ secrets.MJ_API_KEY }}
-      MJ_API_SECRET:       ${{ secrets.MJ_API_SECRET }}
-      MAIL_FROM:           ${{ vars.MAIL_FROM }}   # e.g. "José Peña <jgpena@uc.cl>"
-      MAIL_TO:             ${{ vars.MAIL_TO }}     # e.g. "ecotools@arweave.org.com"
+      MJ_API_KEY:            ${{ secrets.MJ_API_KEY }}
+      MJ_API_SECRET:         ${{ secrets.MJ_API_SECRET }}
+      MAIL_FROM:             ${{ vars.MAIL_FROM }}   # "José Peña <jgpena@uc.cl>"
+      MAIL_TO:               ${{ vars.MAIL_TO }}     # "ecotools@arweave.org.com"
 
-      # Make non-interactive so installs don't block
-      R_KEEP_PKG_SOURCE: no
       CI: true
+      R_KEEP_PKG_SOURCE: no   # make installs non‑interactive
 
     steps:
+      # 1. Checkout repository
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      # 2. Set up R (with Posit public binary cache)
       - name: Set up R
         uses: r-lib/actions/setup-r@v2
         with:
           use-public-rspm: true
 
+      # 3. Set up Pandoc (needed by rmarkdown / pagedown)
       - name: Set up Pandoc
         uses: r-lib/actions/setup-pandoc@v2
 
-      - name: Install system dependencies
+      # 4. Install a headless Google Chrome + all its dependencies
+      - name: Install headless Chrome
+        uses: browser-actions/setup-chrome@v2
+        with:
+          install-dependencies: true   # pulls fonts, X11 libs, etc.
+          chrome-version: stable       # stable | beta | latest
+
+      # 5. Extra system libraries for R packages (curl, SSL, XML…)
+      - name: Install system libraries
         run: |
           sudo apt-get update -y
           sudo apt-get install -y \
-            libcurl4-openssl-dev \
-            libssl-dev \
-            libxml2-dev \
-            libfontconfig1 \
-            libharfbuzz-dev \
-            libfribidi-dev \
-            libfreetype6-dev \
-            libpng-dev \
-            libtiff5-dev \
-            libjpeg-dev \
-            xvfb \
-            chromium-browser || true
-          # Some runners ship chromium via snap; also try google-chrome
-          if ! command -v chromium-browser >/dev/null 2>&1; then
-            sudo apt-get install -y google-chrome-stable || true
-          fi
+            libcurl4-openssl-dev libssl-dev libxml2-dev \
+            libfontconfig1 libharfbuzz-dev libfribidi-dev \
+            libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev
 
+      # 6. Install R package dependencies listed here (uses binary cache)
       - name: Install R package dependencies
         uses: r-lib/actions/setup-r-dependencies@v2
         with:
@@ -94,17 +86,18 @@ jobs:
             any::base64enc
             any::tidytext
 
-      - name: Confirm Chrome path (optional debug)
+      # 7. Confirm Chrome path (handy when debugging)
+      - name: Confirm Chrome path (debug)
         run: |
-          which chromium-browser || echo "no chromium-browser"
-          which google-chrome || echo "no google-chrome"
+          echo "CHROME_BIN -> $CHROME_BIN"
           Rscript -e 'cat("pagedown::find_chrome() ->", pagedown::find_chrome(), "\n")'
 
+      # 8. Run the report‑generation script
       - name: Run report script
-        run: |
-          Rscript generate_report.R
+        run: Rscript generate_report.R
 
-      - name: Upload generated artifacts (debug)
+      # 9. Upload artefacts if the job fails (makes debugging easier)
+      - name: Upload generated artefacts (always)
         if: always()
         uses: actions/upload-artifact@v4
         with:
