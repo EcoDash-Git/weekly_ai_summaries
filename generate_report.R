@@ -339,6 +339,29 @@ weekly_prompt <- glue(
 
 overall_summary4 <- ask_gpt(weekly_prompt, temperature = 0.4, max_tokens = 450)
 
+# ---------------------------------------------------------------------------
+# 8.5 ── Make sure headless Chrome works in CI
+# ---------------------------------------------------------------------------
+suppressMessages({
+  # 1) locate Chrome/Chromium
+  chrome <- pagedown::find_chrome() %||%
+            Sys.which("chromium-browser") %||%
+            Sys.which("google-chrome")    %||%
+            Sys.which("chromium")
+  if (chrome == "") {
+    stop("Cannot find Chrome/Chromium. Is it installed on the runner?")
+  }
+  options(pagedown.chromium = chrome)
+})
+
+# 2) render => PDF (pass --no‑sandbox so the process can start)
+pagedown::chrome_print(
+  "summary.md",
+  output     = "summary_full.pdf",
+  extra_args = "--no-sandbox"
+)
+
+
 # 9 ── COMBINE & RENDER ------------------------------------------------------
 make_md_links <- \(txt) {
   # replace raw URLs *unless* they are already linked
