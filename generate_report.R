@@ -348,10 +348,17 @@ suppressMessages({
 })
 
 # 10 ── COMBINE, WRITE, RENDER PDF ------------------------------------------
-make_md_links <- \(txt) {
-  pattern <- "(?<!\\]\\()https?://\\S+"          # only raw URLs
-  str_replace_all(txt, pattern, "[Link](\\0)")
+make_md_links <- function(txt) {
+  # match a raw URL that is NOT already the target of []()
+  pattern <- "(?<!\\]\\()https?://\\S+"
+
+  str_replace_all(
+    txt,
+    pattern,
+    function(m) sprintf("<a href=\"%s\">%s</a>", m, m)  # anchor text = the URL
+  )
 }
+
 
 final_report <- glue(
   "{overall_summary}\n\n{overall_summary2}\n\n{overall_summary3}\n\n",
@@ -361,18 +368,25 @@ final_report <- glue(
   make_md_links()
 
 writeLines(c(
-  # --- force link colour ---------------------------------------------------
   "<style>",
-  "  a, a:visited {",
-  "    color: #1a0dab !important;",  # Google-blue
-  "    text-decoration: underline;", # keep the underline
-  "  }",
+  "  a, a:visited { color:#1a0dab !important; text-decoration:underline; }",
   "</style>",
   "",
   "# Weekly Summary",
   "",
-  final_report
+  final_report          # will already contain <a href="…">…</a>
 ), "summary.md")
+
+
+rmarkdown::pandoc_convert(
+  "summary.md",
+  to     = "html4",
+  from   = "markdown+tex_math_single_backslash",   # ← no autolink
+  output = html_file,
+  options = c("--standalone","--section-divs","--embed-resources",
+              "--variable","bs3=TRUE","--variable","theme=bootstrap")
+)
+
 
 pagedown::chrome_print(
   "summary.md",
@@ -447,5 +461,6 @@ if (resp_status(mj_resp) >= 300) {
 } else {
   cat("📧  Mailjet response OK — report emailed\n")
 }
+
 
 
