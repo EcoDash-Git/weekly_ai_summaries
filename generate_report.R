@@ -378,21 +378,26 @@ writeLines(c(
 ), "summary.md")
 
 
+# --- Markdown → HTML (no autolink) ---------------------------------
+html_file <- tempfile(fileext = ".html")   # ❶ create the temp file FIRST
+
 rmarkdown::pandoc_convert(
   "summary.md",
   to     = "html4",
-  from   = "markdown+tex_math_single_backslash",   # ← no autolink
-  output = html_file,
+  from   = "markdown+tex_math_single_backslash",
+  output = html_file,                      # ❷ write to it here
   options = c("--standalone","--section-divs","--embed-resources",
               "--variable","bs3=TRUE","--variable","theme=bootstrap")
 )
 
-
+# HTML → PDF
 pagedown::chrome_print(
-  "summary.md",
-  output     = "summary_full.pdf",
+  input   = html_file,                     # ❸ use the HTML you just built
+  output  = "summary_full.pdf",
+  browser = chrome,
   extra_args = "--no-sandbox"
 )
+
 
 # 11 ── UPLOAD TO SUPABASE ---------------------------------------------------
 object_path <- sprintf(
@@ -461,6 +466,7 @@ if (resp_status(mj_resp) >= 300) {
 } else {
   cat("📧  Mailjet response OK — report emailed\n")
 }
+
 
 
 
