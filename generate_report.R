@@ -360,7 +360,19 @@ final_report <- glue(
   str_replace_all("\\$", "\\\\$") |>
   make_md_links()
 
-writeLines(c("# Weekly Summary", "", final_report), "summary.md")
+writeLines(c(
+  # --- force link colour ---------------------------------------------------
+  "<style>",
+  "  a, a:visited {",
+  "    color: #1a0dab !important;",  # Google-blue
+  "    text-decoration: underline;", # keep the underline
+  "  }",
+  "</style>",
+  "",
+  "# Weekly Summary",
+  "",
+  final_report
+), "summary.md")
 
 pagedown::chrome_print(
   "summary.md",
@@ -435,4 +447,5 @@ if (resp_status(mj_resp) >= 300) {
 } else {
   cat("📧  Mailjet response OK — report emailed\n")
 }
+
 
