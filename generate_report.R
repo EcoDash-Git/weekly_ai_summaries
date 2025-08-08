@@ -159,7 +159,7 @@ df  <- tweets |> filter(tweet_type == "original")
 df2 <- tweets                                 # full set
 
 # 5 ── SECTION 1 – LAUNCH / ACTIVITY SUMMARY ---------------------------------
-t tweet lines  ───────────────────────────────────────
+tweet lines  ───────────────────────────────────────
 tweet_lines <- df |>
   mutate(
     line = glue(
@@ -497,5 +497,6 @@ if (resp_status(mj_resp) >= 300) {
 } else {
   cat("📧  Mailjet response OK — report emailed\n")
 }
+
 
 
