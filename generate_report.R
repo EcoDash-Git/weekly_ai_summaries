@@ -430,10 +430,11 @@ pagedown::chrome_print(
   input   = html_file,
   output  = "summary_full.pdf",
   browser = chrome,
-  extra_args = c("--headless=new",   #   ← add these two
+  extra_args = c("--headless",     # classic headless
                  "--disable-gpu",
                  "--no-sandbox")
 )
+
 
 
 
@@ -504,6 +505,7 @@ if (resp_status(mj_resp) >= 300) {
 } else {
   cat("📧  Mailjet response OK — report emailed\n")
 }
+
 
 
 
