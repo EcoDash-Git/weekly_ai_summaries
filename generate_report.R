@@ -209,15 +209,16 @@ fix_parentheses <- function(txt) {
 }
 
 
-launches_summary <- raw %>%          # use the magrittr pipe
+launches_summary <- raw %>%
   clean_gpt_output() %>%
-  fix_parentheses() %>%
-  gsub("(?m)^\\s*(https?://\\S+)\\s*$", "(<\\1>)",  ., perl = TRUE) %>% 
-  gsub("(https?://\\S+)$",               "(<\\1>)",  ., perl = TRUE)
-
+  # drop any angle brackets the model might have added
+  gsub("<(https?://[^>\\s]+)>", "\\1", ., perl = TRUE) %>%
+  # if a line ends with a bare URL, wrap it in (...) exactly once
+  gsub("(?<!\\))\\s(https?://[^\\s)]+)\\s*$", " (\\1)", ., perl = TRUE)
 
 # finally, replace overall_summary
 overall_summary <- launches_summary
+
 
 
 # 6 ── SECTION 2 – NUMERIC INSIGHTS, CONTENT TYPE, HASHTAGS ------------------
@@ -509,6 +510,7 @@ if (resp_status(mj_resp) >= 300) {
 } else {
   cat("📧  Mailjet response OK — report emailed\n")
 }
+
 
 
 
