@@ -203,18 +203,21 @@ clean_gpt_output <- function(txt) {
   paste(lines[vapply(lines, keep, logical(1))], collapse = "\n")
 }
 
-launches_summary <- clean_gpt_output(raw)
+fix_parentheses <- function(txt) {
+  # turn  ((<https://…>).   →  (<https://…>)
+  gsub("\\(\\(<(https?://[^>]+)>\\)[.)]*", "(<\\1>)", txt, perl = TRUE)
+}
 
-# 3️⃣ wrap any remaining bare URLs so Pandoc gives them <a class="uri"> … </a>
-launches_summary <- gsub(
-  "(?m)^\\s*(https?://\\S+)\\s*$", "(<\\1>)", launches_summary, perl = TRUE
-)
-launches_summary <- gsub(
-  "(https?://\\S+)$", "(<\\1>)", launches_summary, perl = TRUE
-)
+launches_summary <- raw |>
+  clean_gpt_output() |>
+  fix_parentheses() |>
+  # still wrap any bare URLs so Pandoc marks them as <a class="uri">
+  gsub("(?m)^\\s*(https?://\\S+)\\s*$", "(<\\1>)", ., perl = TRUE) |>
+  gsub("(https?://\\S+)$", "(<\\1>)", ., perl = TRUE)
 
 # finally, replace overall_summary
 overall_summary <- launches_summary
+
 
 # 6 ── SECTION 2 – NUMERIC INSIGHTS, CONTENT TYPE, HASHTAGS ------------------
 content_tbl <- df2 |>
@@ -505,6 +508,7 @@ if (resp_status(mj_resp) >= 300) {
 } else {
   cat("📧  Mailjet response OK — report emailed\n")
 }
+
 
 
 
