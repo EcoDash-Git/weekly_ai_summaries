@@ -369,15 +369,18 @@ weekly_prompt <- glue(
 
 overall_summary4 <- ask_gpt(weekly_prompt, temperature = 0.4, max_tokens = 450)
 
-# 9 ── LOCATE CHROME / CHROMIUM ---------------------------------------------
+# 9 ── LOCATE CHROME / CHROMIUM ────────────────────────────────────────────
 suppressMessages({
-  chrome <- pagedown::find_chrome()            %||%
-            Sys.which("chromium-browser")       %||%
-            Sys.which("google-chrome")          %||%
-            Sys.which("chromium")
-  if (chrome == "") stop("Cannot find Chrome/Chromium on the runner")
+  chrome <- Sys.getenv("CHROME_BIN")               # ← 1️⃣ respect env-var first
+  if (chrome == "") {
+    chrome <- pagedown::find_chrome()              #   2️⃣ fallback search
+  }
+  if (chrome == "" || !file.exists(chrome)) {
+    stop("Cannot find Chrome/Chromium – set CHROME_BIN or install a browser")
+  }
   options(pagedown.chromium = chrome)
 })
+
 
 # 10 ── COMBINE, WRITE, RENDER PDF ------------------------------------------
 make_md_links <- function(txt) {
@@ -498,6 +501,7 @@ if (resp_status(mj_resp) >= 300) {
 } else {
   cat("📧  Mailjet response OK — report emailed\n")
 }
+
 
 
 
