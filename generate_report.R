@@ -425,13 +425,16 @@ rmarkdown::pandoc_convert(
               "--variable","bs3=TRUE","--variable","theme=bootstrap")
 )
 
-# HTML → PDF
+# HTML → PDF  (ONLY this line changes)
 pagedown::chrome_print(
-  input   = html_file,                     # ❸ use the HTML you just built
+  input   = html_file,
   output  = "summary_full.pdf",
   browser = chrome,
-  extra_args = "--no-sandbox"
+  extra_args = c("--headless=new",   #   ← add these two
+                 "--disable-gpu",
+                 "--no-sandbox")
 )
+
 
 
 # 11 ── UPLOAD TO SUPABASE ---------------------------------------------------
@@ -501,6 +504,7 @@ if (resp_status(mj_resp) >= 300) {
 } else {
   cat("📧  Mailjet response OK — report emailed\n")
 }
+
 
 
 
