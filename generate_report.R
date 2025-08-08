@@ -159,11 +159,12 @@ df  <- tweets |> filter(tweet_type == "original")
 df2 <- tweets                                 # full set
 
 # 5 ── SECTION 1 – LAUNCH / ACTIVITY SUMMARY ---------------------------------
+t tweet lines  ───────────────────────────────────────
 tweet_lines <- df |>
   mutate(
     line = glue(
-      "{format(publish_dt, '%Y-%m-%d %H:%M')} | ",
-      "@{username} | ",                       # ← NEW field
+      "{format(publish_dt, '%Y-%m-%d %H:%M')} | ",   # Date
+      "@{username} | ",                              # Account  ← new field
       "ER={round(engagement_rate, 4)}% | ",
       "{str_replace_all(str_trunc(text, 200), '\\n', ' ')} | ",
       "{tweet_url}"
@@ -171,22 +172,48 @@ tweet_lines <- df |>
   ) |>
   pull(line)
 
-
 big_text <- paste(tweet_lines, collapse = "\n")
 
+# ───────── 5.2  GPT prompt  ────────────────────────────────────────────────
 prompt1 <- glue(
-  "Below is a collection of tweets; each line is ",
-  "URL | Date | Account | Engagement Rate | Tweet text.\n\n",
+  "Below is a collection of tweets; each line is\n",
+  "Date | Account | Engagement Rate | Tweet text | URL.\n\n",   # ← fixed order
   "Write ONE concise bullet-point summary of all concrete activities, events, ",
   "and product launches mentioned across the entire set.\n",
-  "• **Headline** (≤20 words) **and the account in parentheses** — e.g. ",
-  "`2025-08-06 (@redstone_defi): …`.\n",
-  "• Next line (indented two spaces) – copy the first 60 characters of the tweet ",
-  "  text exactly **and then paste the raw URL** (no markdown).\n\n",
+  "• **Begin** with date and account, e.g. `2025-08-06 (@redstone_defi): …`.\n",
+  "• ≤ 20-word summary; **keep the entire bullet on ONE line**.\n",
+  "• End with the raw URL in parentheses – no markdown.\n\n",
   big_text
 )
 
-overall_summary <- ask_gpt(prompt1)
+# ───────── 5.3  call + clean  ──────────────────────────────────────────────
+raw <- ask_gpt(prompt1, max_tokens = 700)
+
+clean_gpt_output <- function(txt) {
+  # 1️⃣ squash "(url (url))"
+  txt <- gsub("\\((https?://[^)\\s]+)\\s*\\(\\1\\)\\)", "(\\1)", txt, perl = TRUE)
+
+  # 2️⃣ drop blank / orphan URL lines
+  keep <- function(l) {
+    l <- trimws(l)
+    !(l == "" || grepl("^https?://", l) || grepl("^\\(", l))
+  }
+  lines <- strsplit(txt, "\n", fixed = TRUE)[[1]]
+  paste(lines[vapply(lines, keep, logical(1))], collapse = "\n")
+}
+
+launches_summary <- clean_gpt_output(raw)
+
+# 3️⃣ wrap any remaining bare URLs so Pandoc gives them <a class="uri"> … </a>
+launches_summary <- gsub(
+  "(?m)^\\s*(https?://\\S+)\\s*$", "(<\\1>)", launches_summary, perl = TRUE
+)
+launches_summary <- gsub(
+  "(https?://\\S+)$", "(<\\1>)", launches_summary, perl = TRUE
+)
+
+# finally, replace overall_summary
+overall_summary <- launches_summary
 
 # 6 ── SECTION 2 – NUMERIC INSIGHTS, CONTENT TYPE, HASHTAGS ------------------
 content_tbl <- df2 |>
@@ -470,8 +497,5 @@ if (resp_status(mj_resp) >= 300) {
 } else {
   cat("📧  Mailjet response OK — report emailed\n")
 }
-
-
-
 
 
