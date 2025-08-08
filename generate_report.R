@@ -7,7 +7,7 @@
 # 0 ── PACKAGES ──────────────────────────────────────────────────────────────
 required <- c(
   "tidyverse", "lubridate", "httr2", "httr", "jsonlite", "glue", "pagedown",
-  "RPostgres", "DBI", "base64enc", "tidytext"
+  "RPostgres", "DBI", "base64enc", "tidytext","magrittr"
 )
 invisible(lapply(required, \(pkg) {
   if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg, quiet = TRUE)
@@ -208,12 +208,13 @@ fix_parentheses <- function(txt) {
   gsub("\\(\\(<(https?://[^>]+)>\\)[.)]*", "(<\\1>)", txt, perl = TRUE)
 }
 
-launches_summary <- raw |>
-  clean_gpt_output() |>
-  fix_parentheses() |>
-  # still wrap any bare URLs so Pandoc marks them as <a class="uri">
-  gsub("(?m)^\\s*(https?://\\S+)\\s*$", "(<\\1>)", ., perl = TRUE) |>
-  gsub("(https?://\\S+)$", "(<\\1>)", ., perl = TRUE)
+
+launches_summary <- raw %>%          # use the magrittr pipe
+  clean_gpt_output() %>%
+  fix_parentheses() %>%
+  gsub("(?m)^\\s*(https?://\\S+)\\s*$", "(<\\1>)",  ., perl = TRUE) %>% 
+  gsub("(https?://\\S+)$",               "(<\\1>)",  ., perl = TRUE)
+
 
 # finally, replace overall_summary
 overall_summary <- launches_summary
@@ -508,6 +509,7 @@ if (resp_status(mj_resp) >= 300) {
 } else {
   cat("📧  Mailjet response OK — report emailed\n")
 }
+
 
 
 
