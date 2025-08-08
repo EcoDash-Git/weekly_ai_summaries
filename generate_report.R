@@ -160,25 +160,29 @@ df2 <- tweets                                 # full set
 
 # 5 ── SECTION 1 – LAUNCH / ACTIVITY SUMMARY ---------------------------------
 tweet_lines <- df |>
-  mutate(line = glue(
-    "{format(publish_dt, '%Y-%m-%d %H:%M')} | ",
-    "ER={round(engagement_rate, 4)}% | ",
-    "{str_replace_all(str_trunc(text, 200), '\\n', ' ')} | ",
-    "{tweet_url}"
-  )) |>
+  mutate(
+    line = glue(
+      "{format(publish_dt, '%Y-%m-%d %H:%M')} | ",
+      "@{username} | ",                       # ← NEW field
+      "ER={round(engagement_rate, 4)}% | ",
+      "{str_replace_all(str_trunc(text, 200), '\\n', ' ')} | ",
+      "{tweet_url}"
+    )
+  ) |>
   pull(line)
+
 
 big_text <- paste(tweet_lines, collapse = "\n")
 
 prompt1 <- glue(
   "Below is a collection of tweets; each line is ",
-  "URL | Date | Engagement Rate | Tweet text.\n\n",
-  "Write ONE concise bullet‑point summary of all concrete activities, events, ",
+  "URL | Date | Account | Engagement Rate | Tweet text.\n\n",
+  "Write ONE concise bullet-point summary of all concrete activities, events, ",
   "and product launches mentioned across the entire set.\n",
-  "• **Headline** (≤20 words) plus the tweet’s date (YYYY‑MM‑DD).\n",
+  "• **Headline** (≤20 words) **and the account in parentheses** — e.g. ",
+  "`2025-08-06 (@redstone_defi): …`.\n",
   "• Next line (indented two spaces) – copy the first 60 characters of the tweet ",
-  "text exactly **and then paste the raw URL**. **Do *not* wrap the URL in brackets ",
-  "or add the word “Link”.**\n\n",
+  "  text exactly **and then paste the raw URL** (no markdown).\n\n",
   big_text
 )
 
@@ -466,6 +470,7 @@ if (resp_status(mj_resp) >= 300) {
 } else {
   cat("📧  Mailjet response OK — report emailed\n")
 }
+
 
 
 
