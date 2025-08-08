@@ -159,18 +159,19 @@ df  <- tweets |> filter(tweet_type == "original")
 df2 <- tweets                                 # full set
 
 # 5 ── SECTION 1 – LAUNCH / ACTIVITY SUMMARY ---------------------------------
-tweet lines  ───────────────────────────────────────
+# ───────── 5.1  compact tweet lines ────────────────────────────────────────
 tweet_lines <- df |>
   mutate(
     line = glue(
-      "{format(publish_dt, '%Y-%m-%d %H:%M')} | ",   # Date
-      "@{username} | ",                              # Account  ← new field
+      "{format(publish_dt, '%Y-%m-%d %H:%M')} | ",
+      "@{username} | ",
       "ER={round(engagement_rate, 4)}% | ",
       "{str_replace_all(str_trunc(text, 200), '\\n', ' ')} | ",
       "{tweet_url}"
     )
   ) |>
   pull(line)
+
 
 big_text <- paste(tweet_lines, collapse = "\n")
 
@@ -497,6 +498,7 @@ if (resp_status(mj_resp) >= 300) {
 } else {
   cat("📧  Mailjet response OK — report emailed\n")
 }
+
 
 
 
