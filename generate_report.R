@@ -57,7 +57,7 @@ ask_gpt <- function(prompt, model = "gpt-4o-mini",
 }
 
 
-`%||%` <- function(a, b) if (nzchar(a)) a else b     # tiny helper
+%||% <- function(a, b) if (nzchar(a)) a else b     # tiny helper
 
 # 2 ── ENVIRONMENT VARIABLES -------------------------------------------------
 SB_HOST        <- trim_env("SUPABASE_HOST")
@@ -181,7 +181,7 @@ prompt1 <- glue(
   "Below is a collection of tweets; each line is\n",
   "Date | Account | Engagement Rate | Tweet text | URL.\n\n",
   "Write 3–8 bullet points, ONE PER DISTINCT activity/event/launch.\n",
-  "Format exactly: `YYYY-MM-DD (@account): <≤20 words> (<raw URL>)`.\n",
+  "Format exactly: YYYY-MM-DD (@account): <≤20 words> (<raw URL>).\n",
   "Keep each bullet on ONE line. Don’t invent details. No extra commentary.\n\n",
   big_text
 )
@@ -278,7 +278,7 @@ prompt2 <- glue(
   "
 You are an experienced social‑media analyst.
 
-Each line in **Data A** has `YYYY-MM-DD HH:MM | ER=% | tweet_text`.
+Each line in **Data A** has YYYY-MM-DD HH:MM | ER=% | tweet_text.
 
 **Data B** gives five‑number summaries; **Data C** content types; **Data D** hashtags; **Data E** best‑time.
 
@@ -288,7 +288,7 @@ Each line in **Data A** has `YYYY-MM-DD HH:MM | ER=% | tweet_text`.
 3. Keyword / Hashtag Trends – 3‑5 terms with higher ER (use Data D).  
 4. Best Times to Post – weekdays & 2‑hr windows (use Data E).
 
-**Rules**: bullet points ≤ 12 words; dates `YYYY‑MM‑DD`; don’t invent numbers.
+**Rules**: bullet points ≤ 12 words; dates YYYY‑MM‑DD; don’t invent numbers.
 
 ### Data A
 {big_text}
@@ -363,7 +363,7 @@ week_lines <- df |>
 
 weekly_prompt <- glue(
   "You are a social‑media analyst.\n\n",
-  "Each line in **Data W** is `YYYY-MM-DD HH:MM | ER | snippet | URL`.\n\n",
+  "Each line in **Data W** is YYYY-MM-DD HH:MM | ER | snippet | URL.\n\n",
   "### Tasks\n",
   "1. What happened this week ({start_week}–{end_week}).\n",
   "2. The week ahead (future events/hints).\n",
@@ -510,12 +510,6 @@ if (resp_status(mj_resp) >= 300) {
 } else {
   cat("📧  Mailjet response OK — report emailed\n")
 }
-
-
-
-
-
-
 
 
 
