@@ -20,7 +20,7 @@ trim_env <- \(var, default = "") {
   if (identical(val, "")) default else val
 }
 
-ask_gpt <- function(, model = "gpt-4o-mini",
+ask_gpt <- function(prompt, model = "gpt-4o-mini",
                     temperature = 0, max_tokens = 700, retries = 3) {
 
   for (k in seq_len(retries)) {
@@ -37,7 +37,7 @@ ask_gpt <- function(, model = "gpt-4o-mini",
               role    = "system",
               content = "You are a concise analyst. Summarise only concrete activities, events or product launches, in bullet points."
             ),
-            list(role = "user", content = )
+            list(role = "user", content = prompt)
           )
         )) |>
         req_retry(max_tries = 3) |>
@@ -55,6 +55,7 @@ ask_gpt <- function(, model = "gpt-4o-mini",
   }
   stop("All OpenAI retries failed")
 }
+
 
 `%||%` <- function(a, b) if (nzchar(a)) a else b     # tiny helper
 
@@ -178,14 +179,13 @@ big_text <- paste(tweet_lines, collapse = "\n")
 # ───────── 5.2  GPT   ────────────────────────────────────────────────
 prompt1 <- glue(
   "Below is a collection of tweets; each line is\n",
-  "Date | Account | Engagement Rate | Tweet text | URL.\n\n",   # ← fixed order
-  "Write 3–8 bullet points, ONE PER DISTINCT for all concrete activities, events, ",
-  "and product launches mentioned across the entire set.\n",
-  "• **Begin** with date and account, e.g. `2025-08-06 (@redstone_defi): …`.\n",
-  "• ≤ 20-word summary; **keep the entire bullet on ONE line**.\n",
-  "• End with the raw URL in parentheses – no markdown.\n\n",
+  "Date | Account | Engagement Rate | Tweet text | URL.\n\n",
+  "Write 3–8 bullet points, ONE PER DISTINCT activity/event/launch.\n",
+  "Format exactly: `YYYY-MM-DD (@account): <≤20 words> (<raw URL>)`.\n",
+  "Keep each bullet on ONE line. Don’t invent details. No extra commentary.\n\n",
   big_text
 )
+
 
 # ───────── 5.3  call + clean  ──────────────────────────────────────────────
 raw <- ask_gpt(prompt1, max_tokens = 700)
@@ -510,6 +510,7 @@ if (resp_status(mj_resp) >= 300) {
 } else {
   cat("📧  Mailjet response OK — report emailed\n")
 }
+
 
 
 
