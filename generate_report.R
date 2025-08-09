@@ -20,7 +20,7 @@ trim_env <- \(var, default = "") {
   if (identical(val, "")) default else val
 }
 
-ask_gpt <- function(prompt, model = "gpt-4o-mini",
+ask_gpt <- function(, model = "gpt-4o-mini",
                     temperature = 0, max_tokens = 700, retries = 3) {
 
   for (k in seq_len(retries)) {
@@ -37,7 +37,7 @@ ask_gpt <- function(prompt, model = "gpt-4o-mini",
               role    = "system",
               content = "You are a concise analyst. Summarise only concrete activities, events or product launches, in bullet points."
             ),
-            list(role = "user", content = prompt)
+            list(role = "user", content = )
           )
         )) |>
         req_retry(max_tries = 3) |>
@@ -175,11 +175,11 @@ tweet_lines <- df |>
 
 big_text <- paste(tweet_lines, collapse = "\n")
 
-# ───────── 5.2  GPT prompt  ────────────────────────────────────────────────
+# ───────── 5.2  GPT   ────────────────────────────────────────────────
 prompt1 <- glue(
   "Below is a collection of tweets; each line is\n",
   "Date | Account | Engagement Rate | Tweet text | URL.\n\n",   # ← fixed order
-  "Write ONE concise bullet-point summary of all concrete activities, events, ",
+  "Write 3–8 bullet points, ONE PER DISTINCT for all concrete activities, events, ",
   "and product launches mentioned across the entire set.\n",
   "• **Begin** with date and account, e.g. `2025-08-06 (@redstone_defi): …`.\n",
   "• ≤ 20-word summary; **keep the entire bullet on ONE line**.\n",
@@ -510,6 +510,7 @@ if (resp_status(mj_resp) >= 300) {
 } else {
   cat("📧  Mailjet response OK — report emailed\n")
 }
+
 
 
 
