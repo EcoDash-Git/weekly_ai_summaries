@@ -57,7 +57,7 @@ ask_gpt <- function(prompt, model = "gpt-4o-mini",
 }
 
 
-%||% <- function(a, b) if (nzchar(a)) a else b     # tiny helper
+`%||%` <- function(a, b) if (nzchar(a)) a else b
 
 # 2 ── ENVIRONMENT VARIABLES -------------------------------------------------
 SB_HOST        <- trim_env("SUPABASE_HOST")
@@ -510,6 +510,7 @@ if (resp_status(mj_resp) >= 300) {
 } else {
   cat("📧  Mailjet response OK — report emailed\n")
 }
+
 
 
 
