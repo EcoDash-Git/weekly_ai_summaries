@@ -135,8 +135,12 @@ main_ids <- tibble::tribble(
   "Botega_AF",          "1902521779161292800",
   "samecwilliams",      "409642632",
   "TateBerenbaum",      "801518825690824707",
-  "ArweaveEco",         "892752981736779776"
+  "ArweaveEco",         "892752981736779776",
+  "outprog_ar",         "2250655424",
+  "HyMatrixOrg",        "1948283615248568320",
+  "EverVisionLabs",     "1742119960535789568"
 )
+
 
 
 # 4 ── PRE‑PROCESS TWEETS ----------------------------------------------------
@@ -510,6 +514,7 @@ if (resp_status(mj_resp) >= 300) {
 } else {
   cat("📧  Mailjet response OK — report emailed\n")
 }
+
 
 
 
