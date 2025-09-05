@@ -1,22 +1,16 @@
 name: Weekly Twitter Report
 
 on:
-  # Manual trigger from the Actions tab
   workflow_dispatch:
-
-  # Uncomment if you want it to run every Friday at 12:00 UTC
   # schedule:
-  #   - cron: "0 12 * * 5"     # min hr dom mon dow   (5 = Friday)
+  #   - cron: "0 12 * * 5"     # Fridays @ 12:00 UTC (optional)
 
 jobs:
   build-run:
     runs-on: ubuntu-latest
 
-    # ------------------------------------------------------------------
-    # Environment variables – pulled from GitHub Secrets / Organization Vars
-    # ------------------------------------------------------------------
     env:
-      # ---------- Supabase ----------
+      # Supabase
       SUPABASE_HOST:         ${{ secrets.SUPABASE_HOST }}
       SUPABASE_PORT:         ${{ secrets.SUPABASE_PORT }}
       SUPABASE_DB:           ${{ secrets.SUPABASE_DB }}
@@ -24,48 +18,42 @@ jobs:
       SUPABASE_PWD:          ${{ secrets.SUPABASE_PWD }}
       SUPABASE_URL:          ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE: ${{ secrets.SUPABASE_SERVICE_ROLE }}
-      SB_BUCKET:             ${{ vars.SB_BUCKET }}   # e.g. weekly-reports
+      SB_BUCKET:             ${{ vars.SB_BUCKET || 'weekly-reports' }}
 
-      # ---------- OpenAI ----------
+      # OpenAI
       OPENAI_API_KEY:        ${{ secrets.OPENAI_API_KEY }}
 
-      # ---------- Mailjet ----------
+      # Mailjet (optional now)
       MJ_API_KEY:            ${{ secrets.MJ_API_KEY }}
       MJ_API_SECRET:         ${{ secrets.MJ_API_SECRET }}
-      MAIL_FROM:             ${{ vars.MAIL_FROM }}   # "José Peña <jgpena@uc.cl>"
-      MAIL_TO:               ${{ vars.MAIL_TO }}     # "ecotools@arweave.org.com"
+      MAIL_FROM:             ${{ vars.MAIL_FROM }}
+      MAIL_TO:               ${{ vars.MAIL_TO }}
+
+      # Disable email sending
+      SEND_EMAIL:            "false"
 
       CI: true
-      R_KEEP_PKG_SOURCE: no   # make installs non-interactive
+      R_KEEP_PKG_SOURCE: no
 
     steps:
-      # 1. Checkout repository
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # 2. Set up R (with Posit public binary cache)
-      - name: Set up R
-        uses: r-lib/actions/setup-r@v2
+      - uses: r-lib/actions/setup-r@v2
         with:
           use-public-rspm: true
 
-      # 3. Set up Pandoc (needed by rmarkdown / pagedown)
-      - name: Set up Pandoc
-        uses: r-lib/actions/setup-pandoc@v2
+      - uses: r-lib/actions/setup-pandoc@v2
 
-      # 4. Install a headless Google Chrome + all its dependencies
       - name: Install headless Chrome
-        id: setup-chrome                         # ← give the step an id
+        id: setup-chrome
         uses: browser-actions/setup-chrome@v2
         with:
-          install-dependencies: true             # pulls fonts, X11 libs, etc.
-          chrome-version: stable                 # stable | beta | latest
+          install-dependencies: true
+          chrome-version: stable
 
-      # 4 b. Expose that path as CHROME_BIN (new step)
       - name: Export CHROME_BIN
         run: echo "CHROME_BIN=${{ steps.setup-chrome.outputs.chrome-path }}" >> $GITHUB_ENV
 
-      # 5. Extra system libraries for R packages (curl, SSL, XML…)
       - name: Install system libraries
         run: |
           sudo apt-get update -y
@@ -74,7 +62,6 @@ jobs:
             libfontconfig1 libharfbuzz-dev libfribidi-dev \
             libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev
 
-      # 6. Install R package dependencies listed here (uses binary cache)
       - name: Install R package dependencies
         uses: r-lib/actions/setup-r-dependencies@v2
         with:
@@ -86,22 +73,16 @@ jobs:
             any::jsonlite
             any::glue
             any::pagedown
+            any::rmarkdown
             any::RPostgres
             any::DBI
             any::base64enc
             any::tidytext
+            any::magrittr
 
-      # 7. Confirm Chrome path (handy when debugging)
-      - name: Confirm Chrome path (debug)
-        run: |
-          echo "CHROME_BIN -> $CHROME_BIN"
-          Rscript -e 'cat("pagedown::find_chrome() ->", pagedown::find_chrome(), "\n")'
-
-      # 8. Run the report-generation script
       - name: Run report script
         run: Rscript generate_report.R
 
-      # 9. Upload artefacts if the job fails (makes debugging easier)
       - name: Upload generated artefacts (always)
         if: always()
         uses: actions/upload-artifact@v4
@@ -111,4 +92,3 @@ jobs:
             summary.md
             summary_full.pdf
           if-no-files-found: warn
-
